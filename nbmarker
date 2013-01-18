@@ -1,0 +1,64 @@
+#!/bin/bash
+
+MARKDIR=/var/newsbeuter/marks
+TITLE="shared items"
+LINK="http://domain.com/index.php/read"
+SELF="http://domain.com/nb.rss"
+OUTFILE=/var/www/nb.rss
+DESCRIPTION="stuff on the web I thought was cool"
+LANGUAGE="en"
+COPYRIGHT="Public Domain"
+TIMETOLIVE="1440" #that's in seconds
+MAXITEMS="25"
+
+function writeitem {
+  TITLE=$(echo ${2} | sed 's/\&/\&amp\;/g')
+  LINK=$(echo ${1} | sed 's/\&/\&amp\;/g')
+  NOW=$(date +%s)
+  cat <<EOITEM > ${MARKDIR}/mark.${NOW}
+          <item>
+            <title>${TITLE}</title>
+            <pubDate>$(date +"%a, %d %b %Y %T %Z")</pubDate>
+	    <guid>${SELF}/${NOW}</guid>
+            <link>${LINK}</link>
+          </item>
+EOITEM
+}
+
+function cleanup {
+  ls -r1 ${MARKDIR}/mark* | tail -n +$((${MAXITEMS}+1)) | xargs rm -f
+}
+
+function writefeed {
+  cat <<EOHEAD
+<?xml version="1.0" encoding="utf-8"?>
+<!-- generator="newsbeuter2rss/0.2" -->
+
+<rss version="2.0"  xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>${TITLE}</title>
+    <link>${LINK}</link>
+    <description>${DESCRIPTION}</description>
+    <atom:link href="${SELF}" rel="self" type="application/rss+xml" />
+    <language>${LANGUAGE}</language>
+	<copyright>${COPYRIGHT}</copyright>
+	<ttl>${TIMETOLIVE}</ttl>
+EOHEAD
+
+cat $(ls -r ${MARKDIR}/mark*)
+
+cat << EOFOOT
+  </channel>
+</rss>
+EOFOOT
+
+}
+
+if [ $# -ge 2 ] 
+then 
+  writeitem "${1}" "${2}"
+  cleanup
+fi
+
+writefeed > ${OUTFILE}
+tidy -qe -xml ${OUTFILE}

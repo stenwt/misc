@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Old curl that formats as HH:MM
+#T=$(curl -s $URL | sed -n 's/.*<prdtm>\(.*\)\ \(.*\)<\/.*/\2/p')
+# New sed that formats as HHMM
+# then=$(curl -s $URLX28 | sed -n 's/.*<prdtm>\(.*\)\ \(.*\):\(.*\)<\/.*/\2\3/p')
+
+APIKEY=
+STOPID=1524 ## E HP & Cornell
+#STOPID=1430 ## State & Lake
+#STOPID=17238 ## Union station (dead)
+URL6=http://www.ctabustracker.com/bustime/api/v1/getpredictions?key=$APIKEY\&rt=6\&stpid=$STOPID\&top=1
+URLX28=http://www.ctabustracker.com/bustime/api/v1/getpredictions?key=$APIKEY\&rt=X28\&stpid=$STOPID\&top=1
+BUS=X28
+
+now=$(date +%s)
+tthen=$(curl -s $URLX28 | sed -n 's/.*<prdtm>\(.*\)\ \(.*\)<\/.*/\2/p')
+if [ -z $tthen ]; then
+  tthen=$(curl -s $URL6 | sed -n 's/.*<prdtm>\(.*\)\ \(.*\)<\/.*/\2/p')
+  BUS=6
+fi
+
+let t=($(date -d $tthen +%s)-$now)/60 
+echo "$BUS: ${t}m"

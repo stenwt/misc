@@ -1,0 +1,57 @@
+#!/bin/bash
+
+RIPPER=/usr/bin/streamripper
+TOPDIR=/var/downloads/podcasts
+NAME=$1
+RSSFILE=${TOPDIR}/${NAME}.xml
+MAXITEMS=10
+BASE=http://foo.bar/podcasts
+
+URL=$1
+LENGTH=$2
+
+[ -d ${TOPDIR}/${NAME} ] || mkdir -p ${TOPDIR}/${NAME}
+
+$RIPPER $STREAM $URL -d ${TOPDIR} -a ${NAME}/${NAME}_%d -l $LENGTH --quiet
+
+rm ${TOPDIR}/$NAME/*cue 
+ls -r1 ${TOPDIR}/$NAME/*mp3 | tail -n +$((${MAXITEMS}+1)) | xargs rm -f  
+
+BUILDDATE=$(date +"%a, %d %b %Y %T %Z")
+cat <<EOHEADER >$RSSFILE
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
+   <channel>
+       <title>$NAME</title>
+       <description>$NAME captures</description>
+       <link>$BASE/$NAME.xml</link>
+       <language>en-us</language>
+       <copyright>None</copyright>
+       <lastBuildDate>$BUILDDATE</lastBuildDate>
+       <pubDate>$BUILDDATE</pubDate>
+EOHEADER
+
+
+for item in $(find ${TOPDIR}/${NAME} -name \*.mp3)
+do
+URL=$(echo $item | sed "s#$TOPDIR#$BASE#")
+SIZE=$(ls -l $item | awk '{print $5}')
+ITEMDATE=$(date -r $item +"%a, %d %b %Y %T %Z")
+cat <<EOITEM >>$RSSFILE
+       <item>
+         <title>$NAME</title>
+         <link>$URL</link>
+         <guid>$URL</guid>
+         <description></description>
+         <enclosure url="$URL" length="$SIZE" type="audio/mpeg"/>
+         <category>$NAME</category>
+         <pubDate>$ITEMDATE</pubDate>
+       </item>
+EOITEM
+done
+
+cat <<EOFOOT >>$RSSFILE
+  </channel>                                                          
+</rss>                                                                
+EOFOOT
+

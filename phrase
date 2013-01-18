@@ -1,0 +1,24 @@
+#!/usr/bin/env python
+#sort -R /usr/share/dict/words | head -n 4 | xargs echo
+
+import random, string
+
+MAXWORDLENGTH = 8
+WORDS = 4
+SOURCE = "/usr/share/dict/words"
+
+fh = open(SOURCE, "r")
+words = string.split(fh.read())
+random.shuffle(words)
+
+ct = 0
+phrase = "" 
+
+while ct < WORDS:
+	word = words.pop()
+	if len(word) <= MAXWORDLENGTH:
+		phrase = phrase + " " + word
+		ct+=1
+
+print phrase
+	
