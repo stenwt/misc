@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-#sort -R /usr/share/dict/words | head -n 4 | xargs echo
+# bash 1-liner version (much slower)
+# MAXLENGTH=10 ; sort -R /usr/share/dict/words | grep -ow -E "[[:lower:]]{1,$MAXLENGTH}" | head -n 4 | xargs echo
 
 import random, string
 
-MAXWORDLENGTH = 8
-WORDS = 4
+MAXWORDLENGTH = 10
+MINWORDLENGTH = 3
+HOWMANYWORDS = 4
 SOURCE = "/usr/share/dict/words"
 
 fh = open(SOURCE, "r")
@@ -12,13 +14,16 @@ words = string.split(fh.read())
 random.shuffle(words)
 
 ct = 0
-phrase = "" 
+phrase = ""
 
-while ct < WORDS:
-	word = words.pop()
-	if len(word) <= MAXWORDLENGTH:
-		phrase = phrase + " " + word
-		ct+=1
+while ct < HOWMANYWORDS:
+    word = words.pop()
+    if len(word) <= MAXWORDLENGTH and len(word) >= MINWORDLENGTH and word.islower() :
+        if len(phrase) == 0 :
+            phrase = word
+        else :
+            phrase = phrase + " " + word
+        ct+=1
 
 print phrase
-	
+
