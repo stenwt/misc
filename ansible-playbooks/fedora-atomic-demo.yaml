@@ -1,0 +1,99 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+
+  vars: 
+    aws_keypair: tyr
+    aws_keypair_content: "{{ lookup('file', '/home/sten/.ssh/id_rsa.pub') }}"
+    aws_instance_type: t2.micro 
+    aws_image: ami-78bafa10 # https://getfedora.org/cloud/download/ "Atomic Cloud HVM"
+    aws_region: us-east-1
+    vpc_region: us-east-1c
+    vpc_env_name: "sud0 ec2"
+    vpc_subnet_name: "dev"
+    top_vpc_subnet: 10.1.0.0/16
+    dev_vpc_subnet: 10.1.50.0/24
+    allow_from_cidr: 0.0.0.0/0
+
+  tasks: 
+    - name: "Define VPCs"
+      ec2_vpc:
+        state: present
+        cidr_block: "{{ top_vpc_subnet }}"
+        resource_tags: '{ "Environment": "{{ vpc_env_name }}" }'
+        region: "{{ aws_region }}"
+        internet_gateway: true
+        subnets:
+          - cidr: "{{ dev_vpc_subnet }}"
+            az: "{{ vpc_region }}"
+            resource_tags: '{ "Environment": "{{ vpc_env_name }}" , "sub" : "{{ vpc_subnet_name }}" }'
+            routes:
+              - dest: 0.0.0.0/0
+                gw: igw
+      register: vpc
+
+    - name: "Enable SSH via Security Groups"
+      ec2_group: 
+        name: "vpc_dev_ssh" 
+        description: "enable ssh"
+        region: "{{ aws_region }}"
+        rules:
+          - proto: tcp
+            from_port: "22"
+            to_port: "22"
+            cidr_ip: "{{ allow_from_cidr }}"
+        vpc_id: "{{ vpc.vpc_id }}"
+
+    - name: "Enable HTTPS via Security Groups"
+      ec2_group: 
+        name: "vpc_dev_https" 
+        description: "enable https"
+        region: "{{ aws_region }}"
+        rules:
+          - proto: tcp
+            from_port: "443"
+            to_port: "443"
+            cidr_ip: "{{ allow_from_cidr }}"
+        vpc_id: "{{ vpc.vpc_id }}"
+
+    - name: "Enable Cockpit via Security Groups"
+      ec2_group:
+        name: "vpc_dev_cockpit"
+        description: "enable cockpit services"
+        region: "{{ aws_region }}"
+        rules:
+          - proto: tcp
+            from_port: "9090"
+            to_port: "9090"
+            cidr_ip: "{{ allow_from_cidr }}"
+        vpc_id: "{{ vpc.vpc_id }}"
+
+    - name: "Define keypair" 
+      ec2_key:
+        name: "{{ aws_keypair }}"
+        state: present
+        key_material: "{{ aws_keypair_content }}"
+
+    - name: "Create Atomic instance"
+      ec2: 
+        image: "{{ aws_image }}"
+        instance_type: "{{ aws_instance_type }}"
+        keypair: "{{ aws_keypair }}"
+        instance_tags: '{"name":"atomic"}'
+        region: "{{ aws_region }}"
+        vpc_subnet_id: "{{ vpc.subnets[0].id }}"
+        group: "vpc_dev_ssh,vpc_dev_cockpit,vpc_dev_https"
+        assign_public_ip: yes
+        wait: true  
+      register: ec2_info
+
+    - add_host: hostname={{ item.public_ip }} groupname=ec2hosts
+      with_items: ec2_info.instances
+
+    - name: wait for instances to listen on SSH port
+      wait_for:
+        state: started
+        host: "{{ item.public_dns_name }}"
+        port: "22"
+      with_items: ec2_info.instances
