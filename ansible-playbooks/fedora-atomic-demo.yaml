@@ -28,7 +28,10 @@
           - cidr: "{{ dev_vpc_subnet }}"
             az: "{{ vpc_region }}"
             resource_tags: '{ "Environment": "{{ vpc_env_name }}" , "sub" : "{{ vpc_subnet_name }}" }'
-            routes:
+        route_tables:
+          - subnets: 
+              - "{{ dev_vpc_subnet }}"
+            routes: 
               - dest: 0.0.0.0/0
                 gw: igw
       register: vpc
